@@ -1,0 +1,96 @@
+@import "tailwindcss";
+
+/* Class-based dark mode (toggle button) instead of Tailwind v4's default
+   prefers-color-scheme behavior — lets the user override the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  /* Brand palette, taken from the client mockup */
+  --color-ink: #121212;
+  --color-cream: #faf6ee;
+  --color-amber: #f4a425;
+  --color-amber-dark: #e0951f;
+  --color-amber-soft: #fff3dd;
+  --color-amber-text: #b37311;
+  --color-sage: #6fcb4b;
+  --color-sage-soft: #eaf7e4;
+  --color-sage-text: #3e8e27;
+  --color-lavender: #c6b6ee;
+  --color-lavender-soft: #f1ecfb;
+  --color-lavender-text: #6b4fbb;
+  --color-coral-soft: #fbe7e3;
+  --color-coral-text: #b23b22;
+  --color-border: #e3ddce;
+
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: "Norwester", -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+@layer base {
+  body {
+    @apply bg-cream text-ink font-sans antialiased transition-colors duration-200 dark:bg-[#101010] dark:text-[#f2ede1];
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--color-border);
+    border-radius: 8px;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-up {
+  animation: fade-up 0.4s ease both;
+}
+
+/* Dual-thumb price range slider (Browse filters) — two native <input type="range">
+   stacked on the same track; the input itself is transparent/click-through, only
+   the thumb is interactive, so each handle can be dragged independently. The
+   input's own box is left full-height (matches the wrapping container) so the
+   browser centers the thumb by default — no hand-tuned offsets needed. */
+.range-thumb {
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+}
+.range-thumb::-webkit-slider-runnable-track {
+  background: transparent;
+}
+.range-thumb::-moz-range-track {
+  background: transparent;
+}
+.range-thumb::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--color-amber);
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
+.range-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: var(--color-amber);
+  border: 2px solid white;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+}
