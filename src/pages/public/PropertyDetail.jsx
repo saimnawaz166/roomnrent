@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Wifi, WashingMachine, Thermometer, Car, Sofa, UtensilsCrossed, BadgeCheck } from 'lucide-react';
 import Button from '../../components/ui/Button';
 import ImagePlaceholder from '../../components/ui/ImagePlaceholder';
 import EmptyState from '../../components/ui/EmptyState';
+import LoadingState from '../../components/ui/LoadingState';
 import ReviewCard from '../../components/ui/ReviewCard';
 import ReviewForm from '../../components/ui/ReviewForm';
 import AdBox from '../../components/ads/AdBox';
@@ -37,10 +38,25 @@ const AMENITY_ICONS = {
 
 export default function PropertyDetail() {
   const { id } = useParams();
-  const { getListingById, isFavorited, toggleFavorite, getReviewsForListing, addReview, hasApprovedApplication } = useAppData();
+  const navigate = useNavigate();
+  const {
+    getListingById,
+    listingsLoading,
+    isFavorited,
+    toggleFavorite,
+    getReviewsForListing,
+    addReview,
+    hasApprovedApplication,
+    getOrCreateConversation,
+  } = useAppData();
   const currentUser = useCurrentUser();
   const listing = getListingById(id);
   const [photoIndex, setPhotoIndex] = useState(0);
+  const [messagingError, setMessagingError] = useState('');
+
+  if (listingsLoading) {
+    return <LoadingState label="Loading listing…" />;
+  }
 
   if (!listing) {
     return (
@@ -50,14 +66,36 @@ export default function PropertyDetail() {
     );
   }
 
+  async function handleMessageLandlord() {
+    if (!currentUser.id) {
+      navigate('/login', { state: { from: { pathname: `/listings/${listing.id}` } } });
+      return;
+    }
+    setMessagingError('');
+    try {
+      const conversationId = await getOrCreateConversation(listing.landlordId, listing.id);
+      navigate(`/messages/${conversationId}`);
+    } catch (err) {
+      setMessagingError(err.message || 'Could not start a conversation. Please try again.');
+    }
+  }
+
   const neighborhood = getNeighborhoodBySlug(listing.neighborhood);
   const amenities = listing.amenities?.length ? listing.amenities : AMENITIES;
   const householdMembers = SEED_HOUSEHOLD_MEMBERS[listing.id] || [];
   const reviews = getReviewsForListing(listing.id);
-  const captions = listing.photos?.length ? listing.photos.map((p) => p.caption) : ['Photo coming soon'];
-  const photoUrls = getListingPhotos(listing.id, GALLERY_PHOTO_COUNT);
-  const photos = photoUrls.map((url, i) => ({ url, caption: captions[i % captions.length] }));
-  const saved = currentUser.role === 'renter' && isFavorited(currentUser.email, listing.id);
+  // Real uploads (from ListingWizard) win once at least one exists; the
+  // deterministic stock-photo pool is just a stand-in for listings nobody
+  // has added real photos to yet.
+  let photos;
+  if (listing.uploadedPhotos?.length > 0) {
+    photos = listing.uploadedPhotos.map((p) => ({ url: p.url, caption: p.caption || listing.title }));
+  } else {
+    const captions = listing.photos?.length ? listing.photos.map((p) => p.caption) : ['Photo coming soon'];
+    const photoUrls = getListingPhotos(listing.id, GALLERY_PHOTO_COUNT);
+    photos = photoUrls.map((url, i) => ({ url, caption: captions[i % captions.length] }));
+  }
+  const saved = currentUser.role === 'renter' && isFavorited(currentUser.id, listing.id);
   const addressRevealed =
     currentUser.role === 'landlord' || (currentUser.role === 'renter' && hasApprovedApplication(currentUser.email, listing.id));
   const canReview = currentUser.role === 'renter' && hasApprovedApplication(currentUser.email, listing.id);
@@ -141,11 +179,11 @@ export default function PropertyDetail() {
             </div>
             <div className="flex shrink-0 gap-2.5">
               {currentUser.role === 'renter' && (
-                <Button variant="outline" size="sm" onClick={() => toggleFavorite(currentUser.email, listing.id)}>
+                <Button variant="outline" size="sm" onClick={() => toggleFavorite(currentUser.id, listing.id)}>
                   {saved ? '♥ Saved' : '♡ Save'}
                 </Button>
               )}
-              <Button to="/messages" variant="outline" size="sm" className="border-ink">
+              <Button onClick={handleMessageLandlord} variant="outline" size="sm" className="border-ink">
                 Message
               </Button>
             </div>
@@ -271,8 +309,10 @@ export default function PropertyDetail() {
                 onSubmit={({ rating, text }) =>
                   addReview({
                     listingId: listing.id,
+                    fromId: currentUser.id,
                     fromName: currentUser.name,
                     fromRole: 'renter',
+                    toId: listing.landlordId,
                     toName: listing.landlordName,
                     toRole: 'landlord',
                     rating,
@@ -310,9 +350,10 @@ export default function PropertyDetail() {
               <Button to={`/apply/${listing.id}`} size="lg" className="mt-5 mb-3 w-full">
                 Apply Now
               </Button>
-              <Button to="/messages" variant="outline" size="lg" className="w-full border-ink">
+              <Button onClick={handleMessageLandlord} variant="outline" size="lg" className="w-full border-ink">
                 Message Landlord
               </Button>
+              {messagingError && <p className="mt-2 text-[12.5px] font-semibold text-coral-text">{messagingError}</p>}
             </div>
 
             <div className="mt-6 lg:mt-0">

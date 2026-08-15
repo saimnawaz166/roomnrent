@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { ClipboardList, MessageSquare, Building2, Bell, CheckCheck } from 'lucide-react';
 import { useAppData } from '../../context/AppDataContext';
+import { formatRelativeTime } from '../../lib/date';
 
 const TYPE_CONFIG = {
   application: { icon: ClipboardList, chip: 'bg-amber-soft text-amber-text' },
@@ -11,8 +12,11 @@ const TYPE_CONFIG = {
 
 const FILTERS = ['all', 'unread'];
 
-function isToday(time) {
-  return time.includes('min ago') || time.includes('hour');
+function isToday(iso) {
+  if (!iso) return false;
+  const date = new Date(iso);
+  const now = new Date();
+  return date.toDateString() === now.toDateString();
 }
 
 export default function Notifications() {
@@ -21,8 +25,8 @@ export default function Notifications() {
 
   const unreadCount = notifications.filter((n) => !n.read).length;
   const visible = filter === 'unread' ? notifications.filter((n) => !n.read) : notifications;
-  const todayItems = visible.filter((n) => isToday(n.time));
-  const earlierItems = visible.filter((n) => !isToday(n.time));
+  const todayItems = visible.filter((n) => isToday(n.createdAt));
+  const earlierItems = visible.filter((n) => !isToday(n.createdAt));
 
   return (
     <div className="max-w-2xl">
@@ -110,7 +114,7 @@ function NotificationGroup({ title, items, onRead }) {
                 >
                   {n.text}
                 </div>
-                <div className="mt-1 text-xs text-ink/45 dark:text-cream/45">{n.time}</div>
+                <div className="mt-1 text-xs text-ink/45 dark:text-cream/45">{formatRelativeTime(n.createdAt)}</div>
               </div>
               {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber" />}
             </button>

@@ -1,9 +1,10 @@
-import { Link, useLocation } from 'react-router-dom';
-import { Bell } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Bell, LogOut } from 'lucide-react';
 import ImagePlaceholder from '../ui/ImagePlaceholder';
 import ThemeToggle from '../ui/ThemeToggle';
 import { getAvatarUrl } from '../../lib/photos';
 import { useRole, useCurrentUser } from '../../context/RoleContext';
+import { useAuth } from '../../context/AuthContext';
 import { useAppData } from '../../context/AppDataContext';
 
 // Maps the current path to a short, human page title so every dashboard
@@ -40,10 +41,17 @@ function getTitle(pathname) {
 
 export default function DashHeader({ onOpenMenu }) {
   const { pathname } = useLocation();
-  const { role, setRole } = useRole();
+  const navigate = useNavigate();
+  const { role } = useRole();
   const currentUser = useCurrentUser();
+  const { signOut } = useAuth();
   const { notifications } = useAppData();
   const unreadCount = notifications.filter((n) => !n.read).length;
+
+  async function handleLogout() {
+    await signOut();
+    navigate('/', { replace: true });
+  }
 
   return (
     <header className="sticky top-0 z-30 border-b border-border dark:border-white/10 bg-white dark:bg-[#1c1c1c]">
@@ -93,27 +101,17 @@ export default function DashHeader({ onOpenMenu }) {
         </div>
       </div>
 
-      {/* Demo-only role switcher — stands in for real auth until login is wired up. */}
-      <div className="flex flex-wrap items-center gap-1.5 border-t border-border dark:border-white/10 px-5 py-2.5 lg:px-8">
-        <span className="mr-1 text-[10.5px] font-bold uppercase tracking-wide text-ink/40 dark:text-cream/40">
-          Viewing as
+      <div className="flex flex-wrap items-center justify-between gap-1.5 border-t border-border dark:border-white/10 px-5 py-2.5 lg:px-8">
+        <span className="rounded-full bg-cream dark:bg-[#141414] px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-ink/50 dark:text-cream/50">
+          {ROLE_LABELS[role] || role}
         </span>
-        <div className="flex gap-1 rounded-full border border-border dark:border-white/10 bg-cream dark:bg-[#141414] p-1">
-          {Object.entries(ROLE_LABELS).map(([key, label]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setRole(key)}
-              className={`cursor-pointer rounded-full px-3 py-1 text-[12px] font-bold transition-colors ${
-                role === key
-                  ? 'bg-ink text-cream dark:bg-cream dark:text-ink'
-                  : 'text-ink/60 dark:text-cream/60 hover:bg-border dark:hover:bg-white/10'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex cursor-pointer items-center gap-1.5 rounded-full px-3 py-1 text-[12px] font-bold text-ink/60 dark:text-cream/60 hover:bg-cream dark:hover:bg-white/10"
+        >
+          <LogOut className="h-[13px] w-[13px]" strokeWidth={2.25} /> Log out
+        </button>
       </div>
     </header>
   );

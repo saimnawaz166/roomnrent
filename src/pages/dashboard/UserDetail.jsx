@@ -1,13 +1,15 @@
+import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ClipboardList, Heart, Building2, Users as UsersIcon } from 'lucide-react';
+import { ClipboardList, Heart, Building2, Users as UsersIcon, Ban, CheckCircle2 } from 'lucide-react';
 import Badge from '../../components/ui/Badge';
+import Button from '../../components/ui/Button';
 import StatCard from '../../components/ui/StatCard';
 import ImagePlaceholder from '../../components/ui/ImagePlaceholder';
 import EmptyState from '../../components/ui/EmptyState';
 import ListingCard from '../../components/listings/ListingCard';
 import VerificationBadge from '../../components/ui/VerificationBadge';
 import { useAppData } from '../../context/AppDataContext';
-import { ADMIN_USERS } from '../../data/admin';
+import { useCurrentUser } from '../../context/RoleContext';
 import { getNeighborhoodBySlug } from '../../data/neighborhoods';
 import { statusTone } from '../../lib/tone';
 import { getAvatarUrl } from '../../lib/photos';
@@ -15,11 +17,14 @@ import { getAvatarUrl } from '../../lib/photos';
 export default function UserDetail() {
   const { email: encodedEmail } = useParams();
   const email = decodeURIComponent(encodedEmail);
-  const { listings, applications, favorites, getListingById, getVerification } = useAppData();
+  const currentUser = useCurrentUser();
+  const { listings, applications, favorites, platformUsers, getListingById, getVerification, getSignedIdFileUrl, updateUserStatus } =
+    useAppData();
+  const [statusUpdating, setStatusUpdating] = useState(false);
 
-  const directoryEntry = ADMIN_USERS.find((u) => u.email === email);
+  const directoryEntry = platformUsers.find((u) => u.email === email);
   const myListings = listings.filter((l) => l.landlordEmail === email);
-  const isLandlord = directoryEntry ? directoryEntry.role === 'Landlord' : myListings.length > 0;
+  const isLandlord = directoryEntry ? directoryEntry.role === 'landlord' : myListings.length > 0;
 
   const verification = getVerification(email);
   const name = directoryEntry?.name || applications.find((a) => a.renterEmail === email)?.renterName || email;
@@ -32,10 +37,33 @@ export default function UserDetail() {
     );
   }
 
+  async function handleViewIdFile() {
+    try {
+      const url = await getSignedIdFileUrl(verification.fileName);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      window.alert(err.message || 'Could not open this file.');
+    }
+  }
+
+  async function handleToggleStatus() {
+    const nextStatus = directoryEntry.status === 'suspended' ? 'active' : 'suspended';
+    const verb = nextStatus === 'suspended' ? 'suspend' : 'reactivate';
+    if (!window.confirm(`${verb === 'suspend' ? 'Suspend' : 'Reactivate'} ${name}'s account?`)) return;
+    setStatusUpdating(true);
+    try {
+      await updateUserStatus(email, nextStatus);
+    } catch (err) {
+      window.alert(err.message || `Could not ${verb} this account.`);
+    } finally {
+      setStatusUpdating(false);
+    }
+  }
+
   // Renter-side data
   const myApplications = applications.filter((a) => a.renterEmail === email);
   const savedListings = favorites
-    .filter((f) => f.renterEmail === email)
+    .filter((f) => f.renterId === directoryEntry?.id)
     .map((f) => getListingById(f.listingId))
     .filter(Boolean);
 
@@ -59,6 +87,25 @@ export default function UserDetail() {
           <Badge tone={isLandlord ? 'lavender' : 'amber'}>{isLandlord ? 'Landlord' : 'Renter'}</Badge>
           {directoryEntry && <Badge tone={statusTone(directoryEntry.status)}>{directoryEntry.status}</Badge>}
           <VerificationBadge status={verification.status === 'none' ? 'rejected' : verification.status} />
+          {directoryEntry && directoryEntry.email !== currentUser.email && (
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={statusUpdating}
+              onClick={handleToggleStatus}
+              className={directoryEntry.status === 'suspended' ? '' : 'border-coral-text text-coral-text hover:bg-coral-soft'}
+            >
+              {directoryEntry.status === 'suspended' ? (
+                <>
+                  <CheckCircle2 className="h-[15px] w-[15px]" strokeWidth={2.25} /> Reactivate
+                </>
+              ) : (
+                <>
+                  <Ban className="h-[15px] w-[15px]" strokeWidth={2.25} /> Suspend
+                </>
+              )}
+            </Button>
+          )}
         </div>
       </div>
 
@@ -66,7 +113,14 @@ export default function UserDetail() {
         <div className="mb-7 rounded-2xl border border-border dark:border-white/10 bg-white dark:bg-[#1c1c1c] p-5">
           <div className="mb-1 text-[13px] font-bold">Identity verification</div>
           <p className="text-[13.5px] text-ink/60 dark:text-cream/60">
-            File on record: <strong>{verification.fileName || 'Not provided'}</strong>
+            File on record:{' '}
+            {verification.fileName ? (
+              <button type="button" onClick={handleViewIdFile} className="cursor-pointer font-bold text-ink dark:text-cream underline">
+                {verification.fileName.split('/').pop()}
+              </button>
+            ) : (
+              <strong>Not provided</strong>
+            )}
             {verification.submittedAt && (
               <> · submitted {new Date(verification.submittedAt).toLocaleDateString()}</>
             )}

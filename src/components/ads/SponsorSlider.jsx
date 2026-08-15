@@ -14,7 +14,7 @@ const SPOTLIGHT_GRADIENTS = [
 // 'strip' (slim banner, mounted in PublicLayout), 'card' (dashboard pages),
 // and 'spotlight' (large hero-style showcase, used on the Landing page).
 export default function SponsorSlider({ type = 'top-section', variant = 'strip', bare = false }) {
-  const { sponsorSlots } = useAppData();
+  const { sponsorSlots, recordAdImpression, recordAdClick } = useAppData();
   const slots = sponsorSlots.filter((s) => s.active && s.type === type);
   const [index, setIndex] = useState(0);
 
@@ -27,6 +27,14 @@ export default function SponsorSlider({ type = 'top-section', variant = 'strip',
     const t = setInterval(() => setIndex((i) => (i + 1) % slots.length), 5500);
     return () => clearInterval(t);
   }, [slots.length]);
+
+  const activeSlotId = slots[index % (slots.length || 1)]?.id;
+  useEffect(() => {
+    if (activeSlotId) recordAdImpression(activeSlotId);
+    // Fires once per rotation into view — each display counts as its own
+    // impression, matching how ad impressions are normally counted.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSlotId]);
 
   if (slots.length === 0) return null;
   const safeIndex = index % slots.length;
@@ -63,9 +71,13 @@ export default function SponsorSlider({ type = 'top-section', variant = 'strip',
                 <div className="max-w-md">
                   <h3 className="font-display mb-3 text-2xl font-extrabold text-ink sm:text-[28px]">{slot.label}</h3>
                   <p className="text-[15px] leading-relaxed text-ink/70">{slot.blurb}</p>
-                  <div className="mt-7 inline-flex items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-cream transition-transform hover:-translate-y-0.5">
+                  <button
+                    type="button"
+                    onClick={() => recordAdClick(slot.id)}
+                    className="mt-7 inline-flex cursor-pointer items-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-bold text-cream transition-transform hover:-translate-y-0.5"
+                  >
                     Learn more →
-                  </div>
+                  </button>
                 </div>
                 <ImagePlaceholder
                   src={getListingPhoto(slot.id, 0)}
@@ -111,9 +123,11 @@ export default function SponsorSlider({ type = 'top-section', variant = 'strip',
 
         <div className="relative h-5 flex-1 overflow-hidden">
           {slots.map((slot, i) => (
-            <div
+            <button
               key={slot.id}
-              className={`absolute inset-0 flex items-center gap-2 transition-all duration-500 ease-out ${
+              type="button"
+              onClick={() => recordAdClick(slot.id)}
+              className={`absolute inset-0 flex cursor-pointer items-center gap-2 text-left transition-all duration-500 ease-out ${
                 i === safeIndex
                   ? 'translate-y-0 opacity-100'
                   : i < safeIndex
@@ -123,7 +137,7 @@ export default function SponsorSlider({ type = 'top-section', variant = 'strip',
             >
               <span className="truncate text-[13px] font-bold">{slot.label}</span>
               <span className="hidden truncate text-[13px] text-ink/55 dark:text-cream/55 sm:inline">— {slot.blurb}</span>
-            </div>
+            </button>
           ))}
         </div>
 

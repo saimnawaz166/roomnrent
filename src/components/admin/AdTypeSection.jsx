@@ -50,7 +50,7 @@ export default function AdTypeSection({ type, title, description, hasPlacements 
     }));
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!form.label.trim()) return;
     const data = {
       type,
@@ -63,15 +63,22 @@ export default function AdTypeSection({ type, title, description, hasPlacements 
           }
         : {}),
     };
-    if (editingId) updateSponsorSlot(editingId, data);
-    else addSponsorSlot(data);
-    closeForm();
+    try {
+      if (editingId) await updateSponsorSlot(editingId, data);
+      else await addSponsorSlot(data);
+      closeForm();
+    } catch (err) {
+      window.alert(err.message || 'Could not save this ad.');
+    }
   }
 
-  function handleDelete(slot) {
-    if (window.confirm(`Delete "${slot.label}"? This can't be undone.`)) {
+  async function handleDelete(slot) {
+    if (!window.confirm(`Delete "${slot.label}"? This can't be undone.`)) return;
+    try {
       if (editingId === slot.id) closeForm();
-      deleteSponsorSlot(slot.id);
+      await deleteSponsorSlot(slot.id);
+    } catch (err) {
+      window.alert(err.message || 'Could not delete this ad.');
     }
   }
 
@@ -185,7 +192,7 @@ export default function AdTypeSection({ type, title, description, hasPlacements 
                 <div className="flex shrink-0 items-center gap-1">
                   <IconButton
                     label={s.active ? 'Pause' : 'Activate'}
-                    onClick={() => toggleSponsorSlot(s.id)}
+                    onClick={() => toggleSponsorSlot(s.id).catch((err) => window.alert(err.message || 'Could not update this ad.'))}
                     hoverClass="hover:bg-cream dark:hover:bg-white/10 hover:text-ink dark:hover:text-cream"
                   >
                     {s.active ? <EyeOff className="h-[16px] w-[16px]" strokeWidth={2.25} /> : <Eye className="h-[16px] w-[16px]" strokeWidth={2.25} />}

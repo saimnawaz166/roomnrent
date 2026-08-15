@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
 import Button from '../../components/ui/Button';
 import EmptyState from '../../components/ui/EmptyState';
 import ImagePlaceholder from '../../components/ui/ImagePlaceholder';
+import LoadingState from '../../components/ui/LoadingState';
 import DatePicker from '../../components/ui/DatePicker';
 import { useRole, useCurrentUser } from '../../context/RoleContext';
 import { useAppData } from '../../context/AppDataContext';
@@ -40,9 +41,11 @@ export default function ListingWizard() {
   const { role } = useRole();
   const { id } = useParams();
   const currentUser = useCurrentUser();
-  const { addListing, updateListing, getListingById } = useAppData();
+  const { addListing, updateListing, getListingById, listingsLoading, uploadListingPhoto, deleteListingPhoto } = useAppData();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   const isEditing = Boolean(id);
   const existing = isEditing ? getListingById(id) : null;
@@ -72,7 +75,25 @@ export default function ListingWizard() {
   const [leaseEndDate, setLeaseEndDate] = useState(toISODate(existing?.leaseEndDate));
   const [transferFee, setTransferFee] = useState(String(existing?.transferFee ?? '0'));
 
+  // Photos already uploaded (only present when editing) vs. newly selected
+  // files that haven't been uploaded yet — new files upload on Publish/Save,
+  // once we're guaranteed to have a real listing id to attach them to.
+  const [existingPhotos, setExistingPhotos] = useState(existing?.uploadedPhotos ?? []);
+  const [newPhotoFiles, setNewPhotoFiles] = useState([]);
+  const [removingPhotoId, setRemovingPhotoId] = useState(null);
+  const [photoError, setPhotoError] = useState('');
+
+  useEffect(() => {
+    // Revoke local preview URLs on unmount so they don't leak.
+    return () => newPhotoFiles.forEach((f) => URL.revokeObjectURL(f.previewUrl));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   if (role !== 'landlord') return <Navigate to="/dashboard" replace />;
+
+  if (isEditing && listingsLoading) {
+    return <LoadingState label="Loading listing…" />;
+  }
 
   if (isEditing && !existing) {
     return (
@@ -89,7 +110,35 @@ export default function ListingWizard() {
     setSelectedAmenities((prev) => (prev.includes(a) ? prev.filter((x) => x !== a) : [...prev, a]));
   }
 
-  function handlePublish() {
+  function handleAddPhotos(e) {
+    const files = Array.from(e.target.files || []);
+    const withPreviews = files.map((file) => ({ file, previewUrl: URL.createObjectURL(file) }));
+    setNewPhotoFiles((prev) => [...prev, ...withPreviews]);
+    e.target.value = '';
+  }
+
+  function removeNewPhoto(index) {
+    setNewPhotoFiles((prev) => {
+      const target = prev[index];
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((_, i) => i !== index);
+    });
+  }
+
+  async function removeExistingPhoto(photo) {
+    setPhotoError('');
+    setRemovingPhotoId(photo.id);
+    try {
+      await deleteListingPhoto(existing.id, photo);
+      setExistingPhotos((prev) => prev.filter((p) => p.id !== photo.id));
+    } catch (err) {
+      setPhotoError(err.message || 'Could not remove this photo.');
+    } finally {
+      setRemovingPhotoId(null);
+    }
+  }
+
+  async function handlePublish() {
     const data = {
       title,
       neighborhood: neighborhoodSlug,
@@ -108,20 +157,32 @@ export default function ListingWizard() {
       amenities: selectedAmenities,
       price: Number(price) || 0,
       period,
-      availableFrom,
+      availableFrom: availableFrom || null,
       furnished,
       utilitiesIncluded,
+      landlordId: currentUser.id,
       landlordName: currentUser.name,
       landlordEmail: currentUser.email,
       ...(isTakeover ? { leaseEndDate, transferFee: Number(transferFee) || 0 } : { leaseEndDate: undefined, transferFee: undefined }),
     };
 
-    if (isEditing) {
-      updateListing(id, data);
-      navigate(`/listings/${id}`);
-    } else {
-      const listing = addListing(data);
-      navigate(`/listings/${listing.id}`);
+    setSubmitError('');
+    setSubmitting(true);
+    try {
+      let targetId = id;
+      if (isEditing) {
+        await updateListing(id, data);
+      } else {
+        const listing = await addListing(data);
+        targetId = listing.id;
+      }
+      for (let i = 0; i < newPhotoFiles.length; i += 1) {
+        await uploadListingPhoto(targetId, newPhotoFiles[i].file, '', existingPhotos.length + i);
+      }
+      navigate(`/listings/${targetId}`);
+    } catch (err) {
+      setSubmitError(err.message || 'Could not save this listing. Please try again.');
+      setSubmitting(false);
     }
   }
 
@@ -260,12 +321,48 @@ export default function ListingWizard() {
 
         {step === 4 && (
           <div>
-            <h3 className="font-display mb-5 text-lg font-bold">Photos</h3>
+            <h3 className="font-display mb-1 text-lg font-bold">Photos</h3>
+            <p className="mb-5 text-[13.5px] text-ink/55 dark:text-cream/55">
+              Add a few real photos of the room — listings with photos get more applicants.
+            </p>
             <div className="grid grid-cols-3 gap-3.5">
-              {[1, 2, 3].map((i) => (
-                <ImagePlaceholder key={i} label="Add photo" className="h-32" />
+              {existingPhotos.map((photo) => (
+                <div key={photo.id} className="relative">
+                  <ImagePlaceholder src={photo.url} className="h-32" />
+                  <button
+                    type="button"
+                    onClick={() => removeExistingPhoto(photo)}
+                    disabled={removingPhotoId === photo.id}
+                    aria-label="Remove photo"
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-ink/70 text-xs font-bold text-cream hover:bg-ink disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
+              {newPhotoFiles.map((item, i) => (
+                <div key={item.previewUrl} className="relative">
+                  <ImagePlaceholder src={item.previewUrl} className="h-32" />
+                  <button
+                    type="button"
+                    onClick={() => removeNewPhoto(i)}
+                    aria-label="Remove photo"
+                    className="absolute right-1.5 top-1.5 flex h-6 w-6 cursor-pointer items-center justify-center rounded-full bg-ink/70 text-xs font-bold text-cream hover:bg-ink"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ))}
+              <label className="flex h-32 cursor-pointer flex-col items-center justify-center gap-1 rounded-2xl border border-dashed border-border dark:border-white/10 text-center text-[12px] font-semibold text-ink/50 dark:text-cream/50 hover:border-ink/30 dark:hover:border-cream/30">
+                <input type="file" accept="image/*" multiple className="hidden" onChange={handleAddPhotos} />
+                + Add photo
+              </label>
             </div>
+            {photoError && (
+              <div className="mt-3 rounded-xl border border-coral-text/30 bg-coral-soft px-4 py-3 text-[13.5px] font-semibold text-coral-text">
+                {photoError}
+              </div>
+            )}
           </div>
         )}
 
@@ -324,7 +421,10 @@ export default function ListingWizard() {
           <div>
             <h3 className="font-display mb-5 text-lg font-bold">Review &amp; {isEditing ? 'save' : 'publish'}</h3>
             <div className="mb-5 flex gap-4 rounded-2xl border border-border dark:border-white/10 p-4">
-              <ImagePlaceholder className="h-24 w-36 shrink-0" />
+              <ImagePlaceholder
+                src={existingPhotos[0]?.url || newPhotoFiles[0]?.previewUrl}
+                className="h-24 w-36 shrink-0"
+              />
               <div className="min-w-0">
                 <div className="text-[15px] font-bold">{title}</div>
                 <div className="mt-1 text-[13px] text-ink/55 dark:text-cream/55">
@@ -357,17 +457,30 @@ export default function ListingWizard() {
         )}
       </div>
 
+      {submitError && (
+        <div className="mt-4 rounded-xl border border-coral-text/30 bg-coral-soft px-4 py-3 text-[13.5px] font-semibold text-coral-text">
+          {submitError}
+        </div>
+      )}
+
       <div className="mt-6 flex justify-between">
-        <Button variant="outline" disabled={step === 0} onClick={() => setStep((s) => Math.max(s - 1, 0))}>
+        <Button variant="outline" disabled={step === 0 || submitting} onClick={() => setStep((s) => Math.max(s - 1, 0))}>
           Back
         </Button>
         <Button
+          disabled={submitting}
           onClick={() => {
             if (step === STEPS.length - 1) handlePublish();
             else setStep((s) => Math.min(s + 1, STEPS.length - 1));
           }}
         >
-          {step === STEPS.length - 1 ? (isEditing ? 'Save Changes' : 'Publish Listing') : 'Continue'}
+          {step === STEPS.length - 1
+            ? submitting
+              ? 'Saving…'
+              : isEditing
+                ? 'Save Changes'
+                : 'Publish Listing'
+            : 'Continue'}
         </Button>
       </div>
     </div>

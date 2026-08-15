@@ -58,30 +58,45 @@ export default function Subscription() {
 
   const [billingCycle, setBillingCycle] = useState(subscription?.billingCycle || 'monthly');
   const [step, setStep] = useState('idle'); // idle → review → success (subscribe flow only)
+  const [submitting, setSubmitting] = useState(false);
+  const [actionError, setActionError] = useState('');
 
   const price = currentTier ? (billingCycle === 'annual' ? currentTier.annual : currentTier.monthly) : null;
   const period = billingCycle === 'annual' ? '/year' : '/month';
   const nextBillingDate = currentTier ? addInterval(new Date(), billingCycle) : null;
 
-  function handleConfirmSubscribe() {
-    subscribeHost(currentUser.email, billingCycle, { tierLabel: currentTier.label, price });
-    setStep('success');
+  async function handleConfirmSubscribe() {
+    setActionError('');
+    setSubmitting(true);
+    try {
+      await subscribeHost(currentUser.email, billingCycle, { tierLabel: currentTier.label, price });
+      setStep('success');
+    } catch (err) {
+      setActionError(err.message || 'Could not activate your subscription. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
-  function handleCancel() {
+  async function handleCancel() {
     if (
       !window.confirm(
         "Cancel your Pro subscription? You'll lose direct-message access to Roomers who haven't applied to your listings.",
       )
     )
       return;
+    setActionError('');
     const cancelPrice = subscription.billingCycle === 'annual' ? currentTier?.annual : currentTier?.monthly;
-    unsubscribeHost(currentUser.email, {
-      tierLabel: currentTier?.label,
-      price: cancelPrice,
-      billingCycle: subscription.billingCycle,
-    });
-    setStep('idle');
+    try {
+      await unsubscribeHost(currentUser.email, {
+        tierLabel: currentTier?.label,
+        price: cancelPrice,
+        billingCycle: subscription.billingCycle,
+      });
+      setStep('idle');
+    } catch (err) {
+      setActionError(err.message || 'Could not cancel your subscription. Please try again.');
+    }
   }
 
   const showReferenceGrid = step !== 'review' && step !== 'success';
@@ -107,6 +122,12 @@ export default function Subscription() {
         </Card>
       ) : (
         <>
+          {actionError && (
+            <div className="mt-6 rounded-xl border border-coral-text/30 bg-coral-soft px-4 py-3 text-[13.5px] font-semibold text-coral-text">
+              {actionError}
+            </div>
+          )}
+
           {step === 'review' ? (
             <ReviewStep
               currentTier={currentTier}
@@ -114,6 +135,7 @@ export default function Subscription() {
               price={price}
               period={period}
               nextBillingDate={nextBillingDate}
+              submitting={submitting}
               onBack={() => setStep('idle')}
               onConfirm={handleConfirmSubscribe}
             />
@@ -285,7 +307,7 @@ function IdleStep({ currentTier, activeCount, price, period, billingCycle, setBi
   );
 }
 
-function ReviewStep({ currentTier, billingCycle, price, period, nextBillingDate, onBack, onConfirm }) {
+function ReviewStep({ currentTier, billingCycle, price, period, nextBillingDate, submitting, onBack, onConfirm }) {
   return (
     <Card className="my-6 p-6 sm:p-7">
       <button
@@ -317,10 +339,10 @@ function ReviewStep({ currentTier, billingCycle, price, period, nextBillingDate,
       </p>
 
       <div className="mt-5 flex flex-col gap-2.5 sm:flex-row">
-        <Button onClick={onConfirm} className="flex-1">
-          Confirm &amp; Subscribe
+        <Button onClick={onConfirm} disabled={submitting} className="flex-1">
+          {submitting ? 'Activating…' : 'Confirm & Subscribe'}
         </Button>
-        <Button variant="outline" onClick={onBack} className="flex-1">
+        <Button variant="outline" onClick={onBack} disabled={submitting} className="flex-1">
           Cancel
         </Button>
       </div>

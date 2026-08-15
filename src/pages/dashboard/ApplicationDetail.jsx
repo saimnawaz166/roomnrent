@@ -14,7 +14,8 @@ import { getAvatarUrl } from '../../lib/photos';
 export default function ApplicationDetail() {
   const { id } = useParams();
   const currentUser = useCurrentUser();
-  const { applications, getListingById, updateApplicationStatus, getVerification, reviews, addReview } = useAppData();
+  const { applications, getListingById, updateApplicationStatus, getVerification, reviews, addReview, getSignedIdFileUrl } =
+    useAppData();
   const app = applications.find((a) => a.id === id);
 
   if (!app) {
@@ -28,6 +29,15 @@ export default function ApplicationDetail() {
   const listing = getListingById(app.listingId);
   const verification = getVerification(app.renterEmail);
   const existingReview = reviews.find((r) => r.fromRole === 'landlord' && r.toName === app.renterName && r.listingId === app.listingId);
+
+  async function handleViewIdFile() {
+    try {
+      const url = await getSignedIdFileUrl(app.idFileName);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      window.alert(err.message || 'Could not open this file.');
+    }
+  }
 
   return (
     <div className="max-w-2xl">
@@ -57,7 +67,16 @@ export default function ApplicationDetail() {
         <div className="mb-5 grid grid-cols-2 gap-4 border-y border-border dark:border-white/10 py-5">
           <Detail label="Listing" value={listing?.title || 'Listing removed'} />
           <Detail label="Move-in date" value={app.moveInDate} />
-          <Detail label="ID uploaded" value={app.idFileName || 'Not provided'} />
+          {app.idFileName ? (
+            <div>
+              <div className="text-xs text-ink/50 dark:text-cream/50">ID uploaded</div>
+              <button type="button" onClick={handleViewIdFile} className="mt-1 cursor-pointer text-sm font-bold underline">
+                View file
+              </button>
+            </div>
+          ) : (
+            <Detail label="ID uploaded" value="Not provided" />
+          )}
           <Detail label="Applied" value={new Date(app.createdAt).toLocaleDateString()} />
         </div>
 
@@ -85,8 +104,10 @@ export default function ApplicationDetail() {
               onSubmit={({ rating, text }) =>
                 addReview({
                   listingId: app.listingId,
+                  fromId: currentUser.id,
                   fromName: currentUser.name,
                   fromRole: 'landlord',
+                  toId: app.renterId,
                   toName: app.renterName,
                   toRole: 'renter',
                   rating,

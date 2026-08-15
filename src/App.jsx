@@ -1,10 +1,11 @@
 import { Route, Routes } from 'react-router-dom';
-import { RoleProvider } from './context/RoleContext';
+import { AuthProvider } from './context/AuthContext';
 import { AppDataProvider } from './context/AppDataContext';
 import { ThemeProvider } from './context/ThemeContext';
 
 import PublicLayout from './components/layout/PublicLayout';
 import DashboardLayout from './components/layout/DashboardLayout';
+import RequireAuth from './components/layout/RequireAuth';
 
 import Landing from './pages/public/Landing';
 import Browse from './pages/public/Browse';
@@ -12,6 +13,7 @@ import PropertyDetail from './pages/public/PropertyDetail';
 import NeighborhoodPage from './pages/public/NeighborhoodPage';
 import Apply from './pages/public/Apply';
 import Auth from './pages/public/Auth';
+import ResetPassword from './pages/public/ResetPassword';
 import Blog from './pages/public/Blog';
 import BlogPost from './pages/public/BlogPost';
 import InfoPage from './pages/public/InfoPage';
@@ -31,7 +33,7 @@ import Notifications from './pages/dashboard/Notifications';
 export default function App() {
   return (
     <ThemeProvider>
-      <RoleProvider>
+      <AuthProvider>
         <AppDataProvider>
           <Routes>
             <Route element={<PublicLayout />}>
@@ -44,6 +46,7 @@ export default function App() {
               <Route path="blog/:slug" element={<BlogPost />} />
               <Route path="login" element={<Auth />} />
               <Route path="signup" element={<Auth />} />
+              <Route path="reset-password" element={<ResetPassword />} />
               <Route path="about" element={<InfoPage slug="about" />} />
               <Route path="careers" element={<InfoPage slug="careers" />} />
               <Route path="press" element={<InfoPage slug="press" />} />
@@ -55,21 +58,23 @@ export default function App() {
               <Route path="contact" element={<InfoPage slug="contact" />} />
             </Route>
 
-            <Route element={<DashboardLayout />}>
-              <Route path="dashboard" element={<Dashboard />} />
-              <Route path="dashboard/:tab" element={<Dashboard />} />
-              <Route path="admin" element={<AdminDashboard />} />
-              <Route path="admin/users/:email" element={<UserDetail />} />
-              <Route path="admin/:tab" element={<AdminDashboard />} />
-              <Route path="listings/new" element={<ListingWizard />} />
-              <Route path="listings/:id/edit" element={<ListingWizard />} />
-              <Route path="find-a-roomer" element={<FindRoomer />} />
-              <Route path="subscription" element={<Subscription />} />
-              <Route path="applications/:id" element={<ApplicationDetail />} />
-              <Route path="messages" element={<Messaging />} />
-              <Route path="messages/:id" element={<Messaging />} />
-              <Route path="profile" element={<Profile />} />
-              <Route path="notifications" element={<Notifications />} />
+            <Route element={<RequireAuth />}>
+              <Route element={<DashboardLayout />}>
+                <Route path="dashboard" element={<Dashboard />} />
+                <Route path="dashboard/:tab" element={<Dashboard />} />
+                <Route path="admin" element={<AdminDashboard />} />
+                <Route path="admin/users/:email" element={<UserDetail />} />
+                <Route path="admin/:tab" element={<AdminDashboard />} />
+                <Route path="listings/new" element={<ListingWizard />} />
+                <Route path="listings/:id/edit" element={<ListingWizard />} />
+                <Route path="find-a-roomer" element={<FindRoomer />} />
+                <Route path="subscription" element={<Subscription />} />
+                <Route path="applications/:id" element={<ApplicationDetail />} />
+                <Route path="messages" element={<Messaging />} />
+                <Route path="messages/:id" element={<Messaging />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="notifications" element={<Notifications />} />
+              </Route>
             </Route>
 
             <Route path="*" element={<PublicLayout />}>
@@ -77,7 +82,7 @@ export default function App() {
             </Route>
           </Routes>
         </AppDataProvider>
-      </RoleProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

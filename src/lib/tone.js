@@ -16,8 +16,8 @@ export function toneClasses(tone = 'neutral') {
 // Maps common status strings (application/listing/user states) to a tone.
 export function statusTone(status) {
   const s = (status || '').toLowerCase();
-  if (['accepted', 'approved', 'verified', 'live', 'resolved'].includes(s)) return 'sage';
-  if (['declined', 'flagged', 'rejected'].includes(s)) return 'coral';
+  if (['accepted', 'approved', 'verified', 'live', 'resolved', 'active'].includes(s)) return 'sage';
+  if (['declined', 'flagged', 'rejected', 'suspended'].includes(s)) return 'coral';
   if (['waitlisted', 'viewed', 'coming_soon', 'coming soon'].includes(s)) return 'lavender';
   if (['under review', 'pending', 'pending review', 'submitted', 'open', 'paused'].includes(s)) return 'amber';
   return 'neutral';

@@ -16,11 +16,11 @@ export default function RenterDashboard() {
   const { tab: tabParam } = useParams();
   const tab = VALID_TABS.includes(tabParam) ? tabParam : 'overview';
   const currentUser = useCurrentUser();
-  const { listings, applications, favorites, getListingById } = useAppData();
+  const { listings, applications, favorites, getListingById, totalUnreadMessages } = useAppData();
 
   const myApplications = applications.filter((a) => a.renterEmail === currentUser.email);
   const savedListings = favorites
-    .filter((f) => f.renterEmail === currentUser.email)
+    .filter((f) => f.renterId === currentUser.id)
     .map((f) => getListingById(f.listingId))
     .filter(Boolean);
   const recommended = listings.filter((l) => l.status === 'live').slice(0, 3);
@@ -47,7 +47,7 @@ export default function RenterDashboard() {
               value={String(myApplications.filter((a) => a.status !== 'declined').length)}
             />
             <StatCard label="Saved listings" value={String(savedListings.length)} />
-            <StatCard label="Unread messages" value="3" />
+            <StatCard label="Unread messages" value={String(totalUnreadMessages)} />
           </div>
           <div className="font-display mb-4 text-[17px] font-bold">Recommended for you</div>
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">

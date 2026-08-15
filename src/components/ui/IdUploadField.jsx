@@ -1,6 +1,7 @@
-// Mock upload — captures the chosen filename only, nothing is actually
-// uploaded anywhere until a backend exists to receive it.
-export default function IdUploadField({ label = 'Government-issued ID', fileName, onChange }) {
+// `file` is the raw selected File object (or null) — the caller is
+// responsible for actually uploading it (see uploadIdFile in
+// AppDataContext) once the surrounding form is submitted.
+export default function IdUploadField({ label = 'Government-issued ID', file, onChange }) {
   return (
     <div>
       <div className="mb-1.5 text-[13px] font-bold">{label}</div>
@@ -9,10 +10,10 @@ export default function IdUploadField({ label = 'Government-issued ID', fileName
           type="file"
           accept="image/*,.pdf"
           className="hidden"
-          onChange={(e) => onChange(e.target.files?.[0]?.name || null)}
+          onChange={(e) => onChange(e.target.files?.[0] || null)}
         />
-        {fileName ? (
-          <span className="font-semibold text-ink dark:text-cream">{fileName} — click to replace</span>
+        {file ? (
+          <span className="font-semibold text-ink dark:text-cream">{file.name} — click to replace</span>
         ) : (
           <span>Drop a driver's license, ID, or passport photo</span>
         )}

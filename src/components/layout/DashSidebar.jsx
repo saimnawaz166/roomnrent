@@ -37,7 +37,7 @@ const COLLAPSE_KEY = 'roomnrent-sidebar-collapsed';
 export default function DashSidebar({ open, onClose }) {
   const { role } = useRole();
   const currentUser = useCurrentUser();
-  const { applications, listings, reports, tickets } = useAppData();
+  const { applications, listings, reports, tickets, totalUnreadMessages } = useAppData();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem(COLLAPSE_KEY) === 'true');
 
   useEffect(() => {
@@ -65,7 +65,7 @@ export default function DashSidebar({ open, onClose }) {
       {
         title: 'Account',
         items: [
-          { label: 'Messages', to: '/messages', icon: MessageSquare },
+          { label: 'Messages', to: '/messages', icon: MessageSquare, badge: totalUnreadMessages },
           { label: 'Notifications', to: '/notifications', icon: Bell },
           { label: 'Profile Settings', to: '/profile', icon: UserCircle },
         ],
@@ -90,7 +90,7 @@ export default function DashSidebar({ open, onClose }) {
       {
         title: 'Account',
         items: [
-          { label: 'Messages', to: '/messages', icon: MessageSquare },
+          { label: 'Messages', to: '/messages', icon: MessageSquare, badge: totalUnreadMessages },
           { label: 'Subscription', to: '/subscription', icon: CreditCard },
           { label: 'Notifications', to: '/notifications', icon: Bell },
           { label: 'Profile Settings', to: '/profile', icon: UserCircle },

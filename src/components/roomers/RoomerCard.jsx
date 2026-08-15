@@ -29,7 +29,10 @@ export default function RoomerCard({ roomer, locked = false, canMessage = false,
     );
   }
 
-  const neighborhoods = roomer.neighborhoods.map((slug) => getNeighborhoodBySlug(slug)?.name || slug).join(', ');
+  const neighborhoods = (roomer.neighborhoods || []).map((slug) => getNeighborhoodBySlug(slug)?.name || slug).join(', ');
+  const subtitle = [roomer.age, roomer.occupation].filter(Boolean).join(' · ');
+  const budget =
+    roomer.budgetMin != null && roomer.budgetMax != null ? `$${roomer.budgetMin}–$${roomer.budgetMax}` : null;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-border dark:border-white/10 bg-white dark:bg-[#1c1c1c] transition-shadow hover:shadow-lg">
@@ -46,21 +49,21 @@ export default function RoomerCard({ roomer, locked = false, canMessage = false,
               <span className="truncate text-sm font-bold">{roomer.name}</span>
               {roomer.verified && <VerificationBadge status="approved" />}
             </div>
-            <div className="text-[12.5px] text-ink/50 dark:text-cream/50">
-              {roomer.age} · {roomer.occupation}
-            </div>
+            {subtitle && <div className="text-[12.5px] text-ink/50 dark:text-cream/50">{subtitle}</div>}
           </div>
-          <span className="shrink-0 font-display text-[13.5px] font-bold text-amber-text">
-            ${roomer.budgetMin}–${roomer.budgetMax}
-          </span>
+          {budget && <span className="shrink-0 font-display text-[13.5px] font-bold text-amber-text">{budget}</span>}
         </div>
 
-        <p className="mb-3 line-clamp-2 text-[12.5px] leading-relaxed text-ink/65 dark:text-cream/65">{roomer.bio}</p>
+        {roomer.bio && (
+          <p className="mb-3 line-clamp-2 text-[12.5px] leading-relaxed text-ink/65 dark:text-cream/65">{roomer.bio}</p>
+        )}
 
         <div className="mb-3 flex flex-wrap gap-1.5 text-[11px]">
-          <span className="rounded-full border border-border dark:border-white/10 bg-cream dark:bg-[#141414] px-2.5 py-1 font-semibold">
-            Move-in: {roomer.moveInDate}
-          </span>
+          {roomer.moveInDate && (
+            <span className="rounded-full border border-border dark:border-white/10 bg-cream dark:bg-[#141414] px-2.5 py-1 font-semibold">
+              Move-in: {roomer.moveInDate}
+            </span>
+          )}
           {neighborhoods && (
             <span className="truncate rounded-full border border-border dark:border-white/10 bg-cream dark:bg-[#141414] px-2.5 py-1 font-semibold">
               {neighborhoods}

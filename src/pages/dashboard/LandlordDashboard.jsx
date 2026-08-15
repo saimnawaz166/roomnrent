@@ -4,6 +4,7 @@ import StatCard from '../../components/ui/StatCard';
 import Button from '../../components/ui/Button';
 import Badge from '../../components/ui/Badge';
 import EmptyState from '../../components/ui/EmptyState';
+import LoadingState from '../../components/ui/LoadingState';
 import ImagePlaceholder from '../../components/ui/ImagePlaceholder';
 import { useAppData } from '../../context/AppDataContext';
 import { useCurrentUser } from '../../context/RoleContext';
@@ -18,7 +19,7 @@ export default function LandlordDashboard() {
   const { tab: tabParam } = useParams();
   const tab = VALID_TABS.includes(tabParam) ? tabParam : 'overview';
   const currentUser = useCurrentUser();
-  const { listings, applications, updateListingStatus, deleteListing, updateApplicationStatus } = useAppData();
+  const { listings, listingsLoading, applications, updateListingStatus, deleteListing, updateApplicationStatus } = useAppData();
   const maxBar = Math.max(...CHART_BARS);
 
   function handleDelete(listing) {
@@ -91,7 +92,9 @@ export default function LandlordDashboard() {
       )}
 
       {tab === 'listings' &&
-        (myListings.length === 0 ? (
+        (listingsLoading ? (
+          <LoadingState label="Loading your listings…" />
+        ) : myListings.length === 0 ? (
           <EmptyState title="No listings yet" description="Create your first listing to see it here." actionLabel="Create Listing" actionTo="/listings/new" />
         ) : (
           <div className="overflow-x-auto rounded-2xl border border-border dark:border-white/10 bg-white dark:bg-[#1c1c1c]">

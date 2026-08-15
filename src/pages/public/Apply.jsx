@@ -14,7 +14,7 @@ const STEPS = ['Basic Info', 'Verify ID', 'Review', 'Done'];
 export default function Apply() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { getListingById, submitApplication } = useAppData();
+  const { getListingById, submitApplication, uploadIdFile } = useAppData();
   const currentUser = useCurrentUser();
   const listing = getListingById(id);
   const neighborhood = listing && getNeighborhoodBySlug(listing.neighborhood);
@@ -22,7 +22,9 @@ export default function Apply() {
   const [agreed, setAgreed] = useState(false);
   const [moveInDate, setMoveInDate] = useState(() => formatDate(listing?.availableFrom) ?? 'September 1, 2026');
   const [note, setNote] = useState('');
-  const [idFileName, setIdFileName] = useState(null);
+  const [idFile, setIdFile] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   if (!listing) {
     return (
@@ -34,16 +36,26 @@ export default function Apply() {
 
   const isDone = step === 3;
 
-  function handleSubmit() {
-    submitApplication({
-      listingId: listing.id,
-      renterName: currentUser.name,
-      renterEmail: currentUser.email,
-      moveInDate,
-      note: note || 'Looking forward to hearing back!',
-      idFileName,
-    });
-    setStep(3);
+  async function handleSubmit() {
+    setSubmitError('');
+    setSubmitting(true);
+    try {
+      const idFileName = idFile ? await uploadIdFile(idFile) : null;
+      await submitApplication({
+        listingId: listing.id,
+        renterId: currentUser.id,
+        renterName: currentUser.name,
+        renterEmail: currentUser.email,
+        moveInDate,
+        note: note || 'Looking forward to hearing back!',
+        idFileName,
+      });
+      setStep(3);
+    } catch (err) {
+      setSubmitError(err.message || 'Could not submit your application. Please try again.');
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -122,7 +134,7 @@ export default function Apply() {
                 <p className="mb-5 text-[13.5px] text-ink/55 dark:text-cream/55">
                   Only {listing.landlordName} sees this once you apply — it&apos;s never public.
                 </p>
-                <IdUploadField fileName={idFileName} onChange={setIdFileName} />
+                <IdUploadField file={idFile} onChange={setIdFile} />
               </div>
             )}
 
@@ -132,7 +144,7 @@ export default function Apply() {
                 <div className="mb-6 flex flex-col gap-3.5">
                   <ReviewRow label="Applicant" value={currentUser.name} />
                   <ReviewRow label="Move-in date" value={moveInDate} />
-                  <ReviewRow label="ID uploaded" value={idFileName || 'Not uploaded'} />
+                  <ReviewRow label="ID uploaded" value={idFile ? idFile.name : 'Not uploaded'} />
                   <ReviewRow label="Listing" value={listing.title} last />
                 </div>
                 <label className="flex cursor-pointer items-start gap-2.5 text-[13.5px]">
@@ -152,15 +164,21 @@ export default function Apply() {
             )}
           </div>
 
+          {submitError && (
+            <div className="mt-4 rounded-xl border border-coral-text/30 bg-coral-soft px-4 py-3 text-[13.5px] font-semibold text-coral-text">
+              {submitError}
+            </div>
+          )}
+
           <div className="mt-6 flex justify-between">
-            <Button variant="outline" disabled={step === 0} onClick={() => setStep((s) => Math.max(s - 1, 0))}>
+            <Button variant="outline" disabled={step === 0 || submitting} onClick={() => setStep((s) => Math.max(s - 1, 0))}>
               Back
             </Button>
             <Button
-              disabled={step === 2 && !agreed}
+              disabled={(step === 2 && !agreed) || submitting}
               onClick={() => (step === 2 ? handleSubmit() : setStep((s) => Math.min(s + 1, 2)))}
             >
-              {step === 2 ? 'Submit Application' : 'Continue'}
+              {step === 2 ? (submitting ? 'Submitting…' : 'Submit Application') : 'Continue'}
             </Button>
           </div>
         </div>

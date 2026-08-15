@@ -7,7 +7,7 @@ import Button from '../../components/ui/Button';
 import { useRole } from '../../context/RoleContext';
 import { useAppData } from '../../context/AppDataContext';
 import AdTypeSection from '../../components/admin/AdTypeSection';
-import { ADMIN_USERS, CHART_BARS } from '../../data/admin';
+import { CHART_BARS } from '../../data/admin';
 import { LISTING_STATUS_LABELS } from '../../data/listings';
 import { AD_TYPE_LABELS, AD_TYPE_DESCRIPTIONS } from '../../data/sponsors';
 import { statusTone } from '../../lib/tone';
@@ -24,8 +24,10 @@ export default function AdminDashboard() {
   const {
     listings,
     updateListing,
+    platformUsers,
     verifications,
     setVerificationStatus,
+    getSignedIdFileUrl,
     reports,
     resolveReport,
     tickets,
@@ -36,12 +38,21 @@ export default function AdminDashboard() {
 
   const pendingVerifications = Object.entries(verifications).filter(([, v]) => v.status === 'pending');
 
+  async function handleViewIdFile(path) {
+    try {
+      const url = await getSignedIdFileUrl(path);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } catch (err) {
+      window.alert(err.message || 'Could not open this file.');
+    }
+  }
+
   return (
     <div>
       {tab === 'overview' && (
         <div>
           <div className="mb-7 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard label="Total users" value="24,180" />
+            <StatCard label="Total users" value={String(platformUsers.length)} />
             <StatCard label="Active listings" value={String(listings.filter((l) => l.status === 'live').length)} />
             <StatCard label="Pending reviews" value={String(pendingVerifications.length)} />
             <StatCard
@@ -73,10 +84,17 @@ export default function AdminDashboard() {
                     className="flex flex-col gap-3 border-t border-border dark:border-white/10 px-6 py-4 text-sm first:border-t-0 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <Link to={`/admin/users/${encodeURIComponent(email)}`} className="min-w-0 hover:underline">
-                      <div className="truncate font-semibold">{ADMIN_USERS.find((u) => u.email === email)?.name || email}</div>
-                      <div className="truncate text-[12.5px] text-ink/55 dark:text-cream/55">{v.fileName}</div>
+                      <div className="truncate font-semibold">{platformUsers.find((u) => u.email === email)?.name || email}</div>
+                      <div className="truncate text-[12.5px] text-ink/55 dark:text-cream/55">
+                        {v.fileName ? v.fileName.split('/').pop() : 'No file'}
+                      </div>
                     </Link>
                     <div className="flex flex-wrap items-center gap-2">
+                      {v.fileName && (
+                        <Button size="sm" variant="outline" onClick={() => handleViewIdFile(v.fileName)}>
+                          View
+                        </Button>
+                      )}
                       <Button size="sm" onClick={() => setVerificationStatus(email, 'approved')}>
                         Approve
                       </Button>
@@ -100,7 +118,7 @@ export default function AdminDashboard() {
                   userRoleView === r ? 'bg-amber text-ink' : 'text-ink/55 dark:text-cream/55 hover:text-ink dark:hover:text-cream'
                 }`}
               >
-                {r}s ({ADMIN_USERS.filter((u) => u.role === r).length})
+                {r}s ({platformUsers.filter((u) => u.role === r.toLowerCase()).length})
               </button>
             ))}
           </div>
@@ -114,7 +132,7 @@ export default function AdminDashboard() {
                 <div>Joined</div>
                 <div className="text-right">Actions</div>
               </div>
-              {ADMIN_USERS.filter((u) => u.role === userRoleView).map((u) => (
+              {platformUsers.filter((u) => u.role === userRoleView.toLowerCase()).map((u) => (
                 <div
                   key={u.email}
                   className="grid grid-cols-[1.2fr_1.4fr_0.8fr_0.8fr_auto] items-center gap-3 border-t border-border dark:border-white/10 px-6 py-4 text-sm"
@@ -124,7 +142,9 @@ export default function AdminDashboard() {
                   <div>
                     <Badge tone={statusTone(u.status)}>{u.status}</Badge>
                   </div>
-                  <div className="text-ink/60 dark:text-cream/60">{u.joined}</div>
+                  <div className="text-ink/60 dark:text-cream/60">
+                    {u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '—'}
+                  </div>
                   <div className="flex justify-end">
                     <Link
                       to={`/admin/users/${encodeURIComponent(u.email)}`}

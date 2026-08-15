@@ -11,7 +11,7 @@ export default function ListingCard({ listing, showType = false, showTags = fals
   const neighborhood = getNeighborhoodBySlug(listing.neighborhood);
   const currentUser = useCurrentUser();
   const { isFavorited, toggleFavorite, getVerification } = useAppData();
-  const saved = currentUser.role === 'renter' && isFavorited(currentUser.email, listing.id);
+  const saved = currentUser.role === 'renter' && isFavorited(currentUser.id, listing.id);
   const landlordVerification = getVerification(listing.landlordEmail);
 
   return (
@@ -22,7 +22,7 @@ export default function ListingCard({ listing, showType = false, showTags = fals
       <div className="relative">
         <ImagePlaceholder
           label="Room photo"
-          src={getListingPhoto(listing.id, 0)}
+          src={listing.uploadedPhotos?.[0]?.url || getListingPhoto(listing.id, 0)}
           alt={listing.title}
           className={compact ? 'h-32' : 'h-44'}
         />
@@ -41,7 +41,7 @@ export default function ListingCard({ listing, showType = false, showTags = fals
             type="button"
             onClick={(e) => {
               e.preventDefault();
-              toggleFavorite(currentUser.email, listing.id);
+              toggleFavorite(currentUser.id, listing.id);
             }}
             aria-label={saved ? 'Remove from saved' : 'Save this room'}
             className="absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-sm text-ink cursor-pointer"

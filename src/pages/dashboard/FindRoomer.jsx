@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { Sparkles, CheckCircle2 } from 'lucide-react';
 import RoomerCard from '../../components/roomers/RoomerCard';
 import Button from '../../components/ui/Button';
+import EmptyState from '../../components/ui/EmptyState';
 import { useAppData } from '../../context/AppDataContext';
 import { useCurrentUser } from '../../context/RoleContext';
-import { SEED_ROOMERS } from '../../data/roomers';
 import { NEIGHBORHOODS } from '../../data/neighborhoods';
 
 // Reverse of Browse: hosts browse Roomers (renters looking for a room) here
@@ -24,9 +24,10 @@ const TIER_PREVIEW_OPTIONS = [
 export default function FindRoomer() {
   const navigate = useNavigate();
   const currentUser = useCurrentUser();
-  const { getHostAccessTier, hasRoomerApplied } = useAppData();
+  const { getHostAccessTier, hasRoomerApplied, roomerProfiles, getOrCreateConversation } = useAppData();
   const [search, setSearch] = useState('');
   const [neighborhood, setNeighborhood] = useState('All');
+  const [messagingError, setMessagingError] = useState('');
 
   // Demo-only override so the 3 access tiers can be clicked through and shown
   // to the client without having to actually pause listings / toggle a real
@@ -36,15 +37,25 @@ export default function FindRoomer() {
   const tier = previewTier ?? realTier.tier;
 
   const roomers = useMemo(() => {
-    return SEED_ROOMERS.filter((r) => {
+    return roomerProfiles.filter((r) => {
       const matchesSearch =
         !search ||
-        r.name.toLowerCase().includes(search.toLowerCase()) ||
-        r.occupation.toLowerCase().includes(search.toLowerCase());
+        r.name?.toLowerCase().includes(search.toLowerCase()) ||
+        r.occupation?.toLowerCase().includes(search.toLowerCase());
       const matchesNeighborhood = neighborhood === 'All' || r.neighborhoods.includes(neighborhood);
       return matchesSearch && matchesNeighborhood;
     });
-  }, [search, neighborhood]);
+  }, [roomerProfiles, search, neighborhood]);
+
+  async function handleMessage(roomer) {
+    setMessagingError('');
+    try {
+      const conversationId = await getOrCreateConversation(roomer.id);
+      navigate(`/messages/${conversationId}`);
+    } catch (err) {
+      setMessagingError(err.message || 'Could not start a conversation. Please try again.');
+    }
+  }
 
   return (
     <div>
@@ -148,24 +159,37 @@ export default function FindRoomer() {
         </select>
       </div>
 
+      {messagingError && (
+        <div className="mb-4 rounded-xl border border-coral-text/30 bg-coral-soft px-4 py-3 text-[13.5px] font-semibold text-coral-text">
+          {messagingError}
+        </div>
+      )}
+
       <div className="mb-4 text-[13.5px] text-ink/55 dark:text-cream/55">
         {roomers.length} roomer{roomers.length === 1 ? '' : 's'} found
       </div>
 
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
-        {roomers.map((r) =>
-          tier === 0 ? (
-            <RoomerCard key={r.id} roomer={r} locked />
-          ) : (
-            <RoomerCard
-              key={r.id}
-              roomer={r}
-              canMessage={tier === 2 || hasRoomerApplied(currentUser.email, r.email)}
-              onMessage={() => navigate('/messages')}
-            />
-          ),
-        )}
-      </div>
+      {roomerProfiles.length === 0 ? (
+        <EmptyState
+          title="No Roomers listed yet"
+          description="Renters can opt into this directory from their Profile settings. Check back soon."
+        />
+      ) : (
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {roomers.map((r) =>
+            tier === 0 ? (
+              <RoomerCard key={r.id} roomer={r} locked />
+            ) : (
+              <RoomerCard
+                key={r.id}
+                roomer={r}
+                canMessage={tier === 2 || hasRoomerApplied(currentUser.email, r.email)}
+                onMessage={() => handleMessage(r)}
+              />
+            ),
+          )}
+        </div>
+      )}
 
       {tier === 0 && (
         <p className="mt-8 text-center text-[12.5px] text-ink/40 dark:text-cream/40">

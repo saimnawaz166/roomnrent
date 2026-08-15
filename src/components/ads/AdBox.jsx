@@ -7,7 +7,7 @@ import { getListingPhoto } from '../../lib/photos';
 // adding/editing/toggling a slot in the Ads tab updates every placement on
 // the site immediately since it all reads from the same context state.
 export default function AdBox({ placement, neighborhoodSlug, variant = 'vertical' }) {
-  const { sponsorSlots } = useAppData();
+  const { sponsorSlots, recordAdImpression, recordAdClick } = useAppData();
   const slots = sponsorSlots.filter((s) => {
     if (!s.active || s.type !== 'listing' || !s.placements?.includes(placement)) return false;
     if (s.neighborhoodSlugs?.length > 0) return neighborhoodSlug && s.neighborhoodSlugs.includes(neighborhoodSlug);
@@ -21,13 +21,21 @@ export default function AdBox({ placement, neighborhoodSlug, variant = 'vertical
     return () => clearInterval(t);
   }, [slots.length]);
 
+  const activeSlotId = slots[index % (slots.length || 1)]?.id;
+  useEffect(() => {
+    if (activeSlotId) recordAdImpression(activeSlotId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeSlotId]);
+
   if (slots.length === 0) return null;
   const slot = slots[index % slots.length];
   const horizontal = variant === 'horizontal';
 
   return (
-    <div
-      className={`overflow-hidden rounded-2xl border border-border dark:border-white/10 bg-white dark:bg-[#1c1c1c] ${horizontal ? 'flex items-center gap-5 p-5' : 'p-4'}`}
+    <button
+      type="button"
+      onClick={() => recordAdClick(slot.id)}
+      className={`w-full cursor-pointer overflow-hidden rounded-2xl border border-border dark:border-white/10 bg-white text-left dark:bg-[#1c1c1c] ${horizontal ? 'flex items-center gap-5 p-5' : 'p-4'}`}
     >
       <ImagePlaceholder
         src={getListingPhoto(slot.id, 0)}
@@ -39,6 +47,6 @@ export default function AdBox({ placement, neighborhoodSlug, variant = 'vertical
         <div className="text-sm font-bold">{slot.label}</div>
         <p className="mt-0.5 text-[12.5px] text-ink/55 dark:text-cream/55">{slot.blurb}</p>
       </div>
-    </div>
+    </button>
   );
 }
